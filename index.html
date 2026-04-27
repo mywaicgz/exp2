@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在线音乐播放器-莫滢雯-实验2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", "PingFang SC", sans-serif;
+        }
+
+        /* 全局沉浸式背景，动态切换歌曲封面模糊效果 */
+        body {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+            color: #fff;
+            transition: background 0.5s ease;
+            background: url("./实验2-音乐播放网站所用素材/img/record0.jpg") no-repeat center center;
+            background-size: cover;
+        }
+
+        /* 背景模糊+深色遮罩，和参考图一致 */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: inherit;
+            filter: blur(20px) brightness(0.4);
+            transform: scale(1.1);
+            z-index: 0;
+        }
+
+        /* 学号姓名展示区（实验强制要求，已填写你的信息） */
+        .student-info {
+            position: absolute;
+            top: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 10;
+            opacity: 0.85;
+        }
+
+        .student-info p {
+            font-size: 18px;
+            letter-spacing: 1px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 主体内容区：黑胶封面 + 歌曲信息 */
+        .main-content {
+            width: 100%;
+            height: calc(100vh - 180px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 120px;
+            padding: 0 80px;
+            position: relative;
+            z-index: 5;
+        }
+
+        /* 黑胶唱片封面区域 */
+        .vinyl-area {
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        /* 黑胶唱片外圈 */
+        .vinyl-disc {
+            width: 450px;
+            height: 450px;
+            border-radius: 50%;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.6);
+            position: relative;
+            /* 播放旋转动画 */
+            animation: rotate 20s linear infinite;
+            animation-play-state: paused;
+        }
+
+        /* 播放时启动旋转 */
+        .vinyl-disc.playing {
+            animation-play-state: running;
+        }
+
+        /* 黑胶唱片纹路 */
+        .vinyl-disc::before {
+            content: "";
+            position: absolute;
+            width: 90%;
+            height: 90%;
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .vinyl-disc::after {
+            content: "";
+            position: absolute;
+            width: 78%;
+            height: 78%;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* 中间歌曲封面 */
+        .song-cover {
+            width: 50%;
+            height: 50%;
+            border-radius: 50%;
+            overflow: hidden;
+            z-index: 2;
+        }
+
+        .song-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* 旋转动画 */
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* 右侧歌曲信息区域 */
+        .song-info-area {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .song-name {
+            font-size: 72px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .singer {
+            font-size: 24px;
+            opacity: 0.75;
+            margin-bottom: 40px;
+        }
+
+        /* 底部控制栏，全屏宽度 */
+        .control-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 140px;
+            padding: 0 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            z-index: 99;
+        }
+
+        /* 进度条区域，全屏宽度 */
+        .progress-area {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .time-text {
+            font-size: 16px;
+            opacity: 0.8;
+            width: 80px;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress {
+            height: 100%;
+            background: #42c980;
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        /* 控制按钮区域 */
+        .controls {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 30px;
+        }
+
+        .control-left, .control-right {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+        }
+
+        .control-center {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            opacity: 0.8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        .btn img {
+            width: 28px;
+            height: 28px;
+            object-fit: contain;
+            filter: brightness(0) invert(1);
+        }
+
+        .play-pause-btn {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            background: #42c980;
+            opacity: 1;
+        }
+
+        .play-pause-btn img {
+            filter: none;
+            width: 22px;
+            height: 22px;
+        }
+
+        /* 音量控制区域 */
+        .volume-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .volume-slider {
+            width: 100px;
+            height: 3px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+        }
+
+        /* 倍速按钮，和参考图对齐 */
+        .speed-btn {
+            color: #fff;
+            font-size: 16px;
+            opacity: 0.8;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .speed-btn:hover {
+            opacity: 1;
+        }
+
+        /* 播放列表容器 */
+        .playlist-container {
+            position: fixed;
+            bottom: 140px;
+            right: 30px;
+            width: 450px;
+            background: rgba(20, 20, 20, 0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 8px 8px 0 0;
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.3s ease;
+            z-index: 98;
+            box-shadow: 0 -5px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .playlist-container.show {
+            max-height: 550px;
+        }
+
+        .playlist-title {
+            font-size: 18px;
+            font-weight: bold;
+            padding: 18px 25px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .playlist {
+            list-style: none;
+            max-height: 480px;
+            overflow-y: auto;
+            padding: 10px 15px;
+        }
+
+        .playlist-item {
+            padding: 12px 15px;
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 5px;
+            font-size: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .playlist-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+        }
+
+        .playlist-item.active {
+            background: rgba(66, 201, 128, 0.2);
+            color: #42c980;
+            font-weight: 500;
+        }
+
+        .playlist::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .playlist::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+
+        /* MV弹窗 */
+        .mv-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            padding: 20px;
+        }
+
+        .mv-modal.show {
+            display: flex;
+        }
+
+        .mv-close {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .mv-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .mv-video {
+            width: 100%;
+            max-width: 1400px;
+            max-height: 85vh;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body id="bodyBg">
+    <!-- 学号姓名已填写你的信息，完全符合实验要求 -->
+    <div class="student-info">
+        <p>学号：24215220209 | 姓名：莫滢雯</p>
+    </div>
+
+    <!-- 主体内容区：黑胶唱片 + 歌曲信息 -->
+    <div class="main-content">
+        <div class="vinyl-area">
+            <div class="vinyl-disc" id="vinylDisc">
+                <div class="song-cover">
+                    <img id="coverImg" src="./实验2-音乐播放网站所用素材/img/record0.jpg" alt="歌曲封面">
+                </div>
+            </div>
+        </div>
+
+        <div class="song-info-area">
+            <div class="song-name" id="songName">歌曲1</div>
+            <div class="singer" id="singer">未知歌手</div>
+        </div>
+    </div>
+
+    <!-- 底部控制栏 -->
+    <div class="control-footer">
+        <!-- 进度条区域 -->
+        <div class="progress-area">
+            <span class="time-text" id="currentTime">00:00</span>
+            <div class="progress-bar" id="progressBar">
+                <div class="progress" id="progress"></div>
+            </div>
+            <span class="time-text" id="totalTime">00:00</span>
+        </div>
+
+        <!-- 控制按钮区域 -->
+        <div class="controls">
+            <div class="control-left">
+                <!-- 播放模式按钮 -->
+                <button class="btn" id="modeBtn">
+                    <img id="modeImg" src="./实验2-音乐播放网站所用素材/img/mode2.png" alt="播放模式">
+                </button>
+            </div>
+
+            <div class="control-center">
+                <!-- 上一首 -->
+                <button class="btn" id="prevBtn">
+                    <img src="./实验2-音乐播放网站所用素材/img/上一首.png" alt="上一首">
+                </button>
+                <!-- 播放/暂停 -->
+                <button class="btn play-pause-btn" id="playPauseBtn">
+                    <img id="playPauseImg" src="./实验2-音乐播放网站所用素材/img/继续播放.png" alt="播放">
+                </button>
+                <!-- 下一首 -->
+                <button class="btn" id="nextBtn">
+                    <img src="./实验2-音乐播放网站所用素材/img/下一首.png" alt="下一首">
+                </button>
+            </div>
+
+            <div class="control-right">
+                <!-- 音量控制 -->
+                <div class="volume-area">
+                    <button class="btn" id="volumeBtn">
+                        <img id="volumeImg" src="./实验2-音乐播放网站所用素材/img/音量.png" alt="音量">
+                    </button>
+                    <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.01" value="0.7">
+                </div>
+                <!-- MV按钮 -->
+                <button class="btn" id="mvBtn">
+                    <img src="./实验2-音乐播放网站所用素材/img/MV.png" alt="MV">
+                </button>
+                <!-- 倍速按钮，和参考图对齐 -->
+                <div class="speed-btn" id="speedBtn">1.0X</div>
+                <!-- 列表按钮 -->
+                <button class="btn" id="playlistBtn">
+                    <img src="./实验2-音乐播放网站所用素材/img/列表.png" alt="播放列表">
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 播放列表容器 -->
+    <div class="playlist-container" id="playlistContainer">
+        <div class="playlist-title">播放列表</div>
+        <ul class="playlist" id="playlist"></ul>
+    </div>
+
+    <!-- MV播放弹窗 -->
+    <div class="mv-modal" id="mvModal">
+        <button class="mv-close" id="mvClose">×</button>
+        <video class="mv-video" id="mvVideo" controls>
+            您的浏览器不支持视频播放
+        </video>
+    </div>
+
+    <!-- 音频核心标签 -->
+    <audio id="audio">
+
+    <script>
+        // 1. 歌曲列表，完全匹配你的mp3、mp4、封面素材
+        const musicList = [
+            {
+                name: "歌曲1",
+                singer: "歌手1",
+                url: "./实验2-音乐播放网站所用素材/mp3/music0.mp3",
+                cover: "./实验2-音乐播放网站所用素材/img/record0.jpg",
+                video: "./实验2-音乐播放网站所用素材/mp4/video0.mp4"
+            },
+            {
+                name: "歌曲2",
+                singer: "歌手2",
+                url: "./实验2-音乐播放网站所用素材/mp3/music1.mp3",
+                cover: "./实验2-音乐播放网站所用素材/img/record1.jpg",
+                video: "./实验2-音乐播放网站所用素材/mp4/video1.mp4"
+            },
+            {
+                name: "歌曲3",
+                singer: "歌手3",
+                url: "./实验2-音乐播放网站所用素材/mp3/music2.mp3",
+                cover: "./实验2-音乐播放网站所用素材/img/record2.jpg",
+                video: "./实验2-音乐播放网站所用素材/mp4/video2.mp4"
+            },
+            {
+                name: "歌曲4",
+                singer: "歌手4",
+                url: "./实验2-音乐播放网站所用素材/mp3/music3.mp3",
+                cover: "./实验2-音乐播放网站所用素材/img/record3.jpg",
+                video: "./实验2-音乐播放网站所用素材/mp4/video3.mp4"
+            }
+        ];
+
+        // 2. 核心元素获取
+        const bodyBg = document.getElementById("bodyBg");
+        const audio = document.getElementById("audio");
+        const vinylDisc = document.getElementById("vinylDisc");
+        const playPauseBtn = document.getElementById("playPauseBtn");
+        const playPauseImg = document.getElementById("playPauseImg");
+        const prevBtn = document.getElementById("prevBtn");
+        const nextBtn = document.getElementById("nextBtn");
+        const progressBar = document.getElementById("progressBar");
+        const progress = document.getElementById("progress");
+        const currentTimeEl = document.getElementById("currentTime");
+        const totalTimeEl = document.getElementById("totalTime");
+        const songNameEl = document.getElementById("songName");
+        const singerEl = document.getElementById("singer");
+        const coverImg = document.getElementById("coverImg");
+        const playlistEl = document.getElementById("playlist");
+        const playlistContainer = document.getElementById("playlistContainer");
+        const playlistBtn = document.getElementById("playlistBtn");
+        const modeBtn = document.getElementById("modeBtn");
+        const modeImg = document.getElementById("modeImg");
+        const volumeBtn = document.getElementById("volumeBtn");
+        const volumeImg = document.getElementById("volumeImg");
+        const volumeSlider = document.getElementById("volumeSlider");
+        const mvBtn = document.getElementById("mvBtn");
+        const mvModal = document.getElementById("mvModal");
+        const mvClose = document.getElementById("mvClose");
+        const mvVideo = document.getElementById("mvVideo");
+        const speedBtn = document.getElementById("speedBtn");
+
+        // 3. 全局变量
+        let currentIndex = 0;
+        let isPlaying = false;
+        let playMode = 1; // 1:列表循环 2:随机播放 3:单曲循环
+        let isMuted = false;
+        let lastVolume = 0.7;
+        let currentSpeed = 1.0;
+
+        // 4. 直接使用你提供的时间格式化函数
+        //音频播放时间换算
+        function transTime(value) {
+            var time = "";
+            var h = parseInt(value / 3600);
+            value %= 3600;
+            var m = parseInt(value / 60);
+            var s = parseInt(value % 60);
+            if (h > 0) {
+                time = formatTime(h + ':' + m + ':' + s);
+            } else {
+                time = formatTime(m + ':' + s);
+            }
+            return time;
+        }
+
+        //格式化时间显示，补零对齐
+        function formatTime(value) {
+            var time = "";
+            var s = value.split(':');
+            var i = 0;
+            for (; i < s.length - 1; i++) {
+                time += s[i].length == 1 ? '0' + s[i] : s[i];
+                time += ':';
+            }
+            time += s[i].length == 1 ? '0' + s[i] : s[i];
+            return time;
+        }
+
+        // 5. 初始化播放列表
+        function initPlaylist() {
+            playlistEl.innerHTML = "";
+            musicList.forEach((item, index) => {
+                const li = document.createElement("li");
+                li.className = `playlist-item ${index === currentIndex ? "active" : ""}`;
+                li.innerHTML = `<span>${item.name} - ${item.singer}</span>`;
+                // 点击列表切换歌曲
+                li.addEventListener("click", () => {
+                    currentIndex = index;
+                    loadMusic();
+                    playMusic();
+                });
+                playlistEl.appendChild(li);
+            });
+        }
+
+        // 6. 加载歌曲信息
+        function loadMusic() {
+            const currentMusic = musicList[currentIndex];
+            // 加载音频
+            audio.src = currentMusic.url;
+            // 更新歌曲信息
+            songNameEl.textContent = currentMusic.name;
+            singerEl.textContent = currentMusic.singer;
+            coverImg.src = currentMusic.cover;
+            // 动态更新页面背景
+            bodyBg.style.background = `url(${currentMusic.cover}) no-repeat center center`;
+            bodyBg.style.backgroundSize = "cover";
+            // 更新列表高亮
+            document.querySelectorAll(".playlist-item").forEach((item, index) => {
+                item.classList.toggle("active", index === currentIndex);
+            });
+            // 重置播放速度
+            audio.playbackRate = currentSpeed;
+        }
+
+        // 7. 播放/暂停控制
+        function playMusic() {
+            audio.play();
+            isPlaying = true;
+            playPauseImg.src = "./实验2-音乐播放网站所用素材/img/暂停.png";
+            // 黑胶唱片开始旋转
+            vinylDisc.classList.add("playing");
+        }
+
+        function pauseMusic() {
+            audio.pause();
+            isPlaying = false;
+            playPauseImg.src = "./实验2-音乐播放网站所用素材/img/继续播放.png";
+            // 黑胶唱片停止旋转
+            vinylDisc.classList.remove("playing");
+        }
+
+        playPauseBtn.addEventListener("click", () => {
+            isPlaying ? pauseMusic() : playMusic();
+        });
+
+        // 8. 上一曲/下一曲逻辑
+        function getNextIndex() {
+            if (playMode === 2) {
+                // 随机播放，避免和当前歌曲重复
+                let randomIndex;
+                do {
+                    randomIndex = Math.floor(Math.random() * musicList.length);
+                } while (randomIndex === currentIndex && musicList.length > 1);
+                return randomIndex;
+            } else {
+                // 列表循环
+                return (currentIndex + 1) % musicList.length;
+            }
+        }
+
+        function getPrevIndex() {
+            if (playMode === 2) {
+                let randomIndex;
+                do {
+                    randomIndex = Math.floor(Math.random() * musicList.length);
+                } while (randomIndex === currentIndex && musicList.length > 1);
+                return randomIndex;
+            } else {
+                return (currentIndex - 1 + musicList.length) % musicList.length;
+            }
+        }
+
+        prevBtn.addEventListener("click", () => {
+            currentIndex = getPrevIndex();
+            loadMusic();
+            playMusic();
+        });
+
+        nextBtn.addEventListener("click", () => {
+            currentIndex = getNextIndex();
+            loadMusic();
+            playMusic();
+        });
+
+        // 9. 播放进度实时更新
+        audio.addEventListener("timeupdate", () => {
+            const current = audio.currentTime;
+            const total = audio.duration;
+            if (!isNaN(total)) {
+                const progressPercent = (current / total) * 100;
+                progress.style.width = `${progressPercent}%`;
+                currentTimeEl.textContent = transTime(current);
+                totalTimeEl.textContent = transTime(total);
+            }
+        });
+
+        // 10. 点击进度条跳转到指定时间（实验核心要求）
+        progressBar.addEventListener("click", (e) => {
+            const barWidth = progressBar.clientWidth;
+            const clickX = e.offsetX;
+            const totalTime = audio.duration;
+            if (!isNaN(totalTime)) {
+                audio.currentTime = (clickX / barWidth) * totalTime;
+            }
+        });
+
+        // 11. 歌曲播放结束后的自动处理
+        audio.addEventListener("ended", () => {
+            if (playMode === 3) {
+                // 单曲循环
+                audio.currentTime = 0;
+                playMusic();
+            } else {
+                // 列表循环/随机播放
+                currentIndex = getNextIndex();
+                loadMusic();
+                playMusic();
+            }
+        });
+
+        // 12. 播放列表展开/收起
+        playlistBtn.addEventListener("click", () => {
+            playlistContainer.classList.toggle("show");
+        });
+
+        // 13. 播放模式切换
+        modeBtn.addEventListener("click", () => {
+            playMode = playMode % 3 + 1;
+            if (playMode === 1) {
+                modeImg.src = "./实验2-音乐播放网站所用素材/img/mode2.png"; // 列表循环
+            } else if (playMode === 2) {
+                modeImg.src = "./实验2-音乐播放网站所用素材/img/mode3.png"; // 随机播放
+            } else {
+                modeImg.src = "./实验2-音乐播放网站所用素材/img/mode1.png"; // 单曲循环
+            }
+        });
+
+        // 14. 音量控制
+        volumeSlider.addEventListener("input", (e) => {
+            const volume = e.target.value;
+            audio.volume = volume;
+            lastVolume = volume;
+            if (volume == 0) {
+                isMuted = true;
+                volumeImg.src = "./实验2-音乐播放网站所用素材/img/静音.png";
+            } else {
+                isMuted = false;
+                volumeImg.src = "./实验2-音乐播放网站所用素材/img/音量.png";
+            }
+        });
+
+        volumeBtn.addEventListener("click", () => {
+            if (isMuted) {
+                // 恢复音量
+                audio.volume = lastVolume;
+                volumeSlider.value = lastVolume;
+                volumeImg.src = "./实验2-音乐播放网站所用素材/img/音量.png";
+                isMuted = false;
+            } else {
+                // 静音
+                lastVolume = audio.volume;
+                audio.volume = 0;
+                volumeSlider.value = 0;
+                volumeImg.src = "./实验2-音乐播放网站所用素材/img/静音.png";
+                isMuted = true;
+            }
+        });
+
+        // 15. 倍速控制，和参考图对齐
+        const speedList = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+        let speedIndex = 2;
+        speedBtn.addEventListener("click", () => {
+            speedIndex = (speedIndex + 1) % speedList.length;
+            currentSpeed = speedList[speedIndex];
+            audio.playbackRate = currentSpeed;
+            speedBtn.textContent = `${currentSpeed}X`;
+        });
+
+        // 16. MV播放功能
+        mvBtn.addEventListener("click", () => {
+            const currentMusic = musicList[currentIndex];
+            mvVideo.src = currentMusic.video;
+            mvModal.classList.add("show");
+            pauseMusic(); // 播放MV时暂停音乐
+            mvVideo.play();
+        });
+
+        mvClose.addEventListener("click", () => {
+            mvModal.classList.remove("show");
+            mvVideo.pause();
+            mvVideo.src = "";
+        });
+
+        // 17. 页面加载完成后初始化
+        window.addEventListener("DOMContentLoaded", () => {
+            initPlaylist();
+            loadMusic();
+            audio.volume = 0.7; // 默认音量70%
+        });
+    </script>
+</body>
+</html>
